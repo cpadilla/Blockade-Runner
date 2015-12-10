@@ -9,22 +9,24 @@ CAP 4720
 <html>
 
 <head>
+	<meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+	<meta content="utf-8" http-equiv="encoding">
 	<title>~=BLOCADE RUNNER=~</title>
 
 	<link rel="stylesheet" type="text/css" href="css/styles.css" />
 
-	<script type="text/javascript" src="js/three.min.js"></script>
-	<script type="text/javascript" src="js/stats.js"></script>
-	<script type="text/javascript" src="js/physi.js"></script>
-	<script type="text/javascript" src="js/buzz.js"></script>
+	<script type="text/javascript" src="./js/three.min.js"></script>
+	<script type="text/javascript" src="./js/stats.js"></script>
+	<script type="text/javascript" src="./js/physi.js"></script>
+	<script type="text/javascript" src="./js/buzz.js"></script>
 
 	<script type="text/javascript">
 
 	'use strict';
 
-	Physijs.scripts.worker = 'js/physijs_worker.js';
-	Physijs.scripts.ammo = 'ammo.js';
-	Physijs.scripts.buzz = 'js/buzz.js';
+	Physijs.scripts.worker = './js/physijs_worker.js';
+	Physijs.scripts.ammo = './ammo.js';
+	Physijs.scripts.buzz = './js/buzz.js';
 
 	var initScene, render, _boxes = [], spawnBox, spawnPlayer, loader, Update, time,
 		renderer, render_stats, physics_stats, scene, ground_material, ground, light,
@@ -174,10 +176,10 @@ CAP 4720
 				var button, material;
 				var texture;
 				if (name == "PLAY") {
-					texture = loader.load( 'images/play.jpg' );
+					texture = loader.load( './images/play.jpg' );
 				}
 				else {
-					texture = loader.load( 'images/quit.jpg' );
+					texture = loader.load( './images/quit.jpg' );
 				}
 
 				material = Physijs.createMaterial(
@@ -188,7 +190,7 @@ CAP 4720
 				material.map.wrapS = material.map.wrapT = THREE.RepeatWrapping;
 				material.map.repeat.set( 1.0, 1.0 );
 
-				//material = new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( 'images/rocks.jpg' ) });
+				//material = new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( '/images/rocks.jpg' ) });
 
 				button = new Physijs.BoxMesh(
 					button_geometry,
@@ -220,7 +222,7 @@ CAP 4720
 	};
 
 	createGround = function() {
-		ground_texture = loader.load( 'images/wood.jpg' );
+		ground_texture = loader.load( './images/wood.jpg' );
 		ground_material = Physijs.createMaterial(
 			new THREE.MeshLambertMaterial({ map: ground_texture }),
 			.9, // high friction
@@ -264,14 +266,14 @@ CAP 4720
 				var box, material;
 
 				material = Physijs.createMaterial(
-					new THREE.MeshLambertMaterial({ map: loader.load( 'images/plywood.jpg' ) }),
+					new THREE.MeshLambertMaterial({ map: loader.load( './images/plywood.jpg' ) }),
 					.6, // medium friction
 					.3 // low restitution
 				);
 				material.map.wrapS = material.map.wrapT = THREE.RepeatWrapping;
 				material.map.repeat.set( 1.0, 2.0 );
 
-				//material = new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( 'images/rocks.jpg' ) });
+				//material = new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( './images/rocks.jpg' ) });
 
 				box = new Physijs.BoxMesh(
 					box_geometry,
@@ -315,10 +317,10 @@ CAP 4720
 				var button, material;
 				var texture;
 				if (name == "RETRY") {
-					texture = loader.load( 'images/retry.jpg' );
+					texture = loader.load( './images/retry.jpg' );
 				}
 				else {
-					texture = loader.load( 'images/quit.jpg' );
+					texture = loader.load( './images/quit.jpg' );
 				}
 
 				material = Physijs.createMaterial(
@@ -327,9 +329,9 @@ CAP 4720
 					.3 // low restitution
 				);
 				material.map.wrapS = material.map.wrapT = THREE.RepeatWrapping;
-				material.map.repeat.set( 1.0, 1.0 );
+				material.map.repeat.set( 1, 1 );
 
-				//material = new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( 'images/rocks.jpg' ) });
+				//material = new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( './images/rocks.jpg' ) });
 
 				button = new Physijs.BoxMesh(
 					button_geometry,
@@ -387,7 +389,7 @@ CAP 4720
 				var box, material;
 
 				material = Physijs.createMaterial(
-					new THREE.MeshLambertMaterial({ map: loader.load( 'images/grass.png' ) }),
+					new THREE.MeshLambertMaterial({ map: loader.load( './images/grass.jpg' ) }),
 					.8, // medium friction
 					.1 // low restitution
 				);
@@ -425,11 +427,13 @@ CAP 4720
 	Update = function() {
 		switch (GAMESTATE) {
 			case "LOADMENU":
+				console.log("Load Menu");
 				scrollBackground();
 				createMenuButtons();
 				GAMESTATE = "MAINMENU";
 				break;
 			case "MAINMENU":
+				console.log("Main Menu");
 				setRayCaster();
 				var intersects = raycaster.intersectObjects( scene.children );
 				var wasP = playHover;
@@ -465,7 +469,8 @@ CAP 4720
 				ground_texture.offset.y %= 1;
 
 				var box;
-				for (box of _boxes) {
+				for (var i = _boxes.length - 1; i > 0; i-- ) {
+					box = _boxes[i];
 					box.position.z += 1;
 					box.__dirtyPosition = true;
 
@@ -475,10 +480,20 @@ CAP 4720
 						_boxes.splice(index, 1);
 					}
 				}
+
+				// if (playHover)
+				// 	console.log("hover");
 				break;
 			case "PLAY":
+				console.log("Playing");
 				time++;
 				document.getElementById("score").innerHTML = "SCORE : " + time;
+
+				if (time > highscore)
+				{
+					highscore = time;
+				}
+
 		    var clampedRotation = Math.max(-100, Math.min(100, mouseX * -0.1));
 
 				player.rotation.set( 0, clampedRotation * 0.01, 0);
@@ -492,7 +507,7 @@ CAP 4720
 					spawnBox( 1, false );
 
 				//  update spawn interval
-				if (time % rampTime == 0)
+				if (time % rampTime == 0 && gameSpeed < 4)
 				{
 					gameSpeed += 0.15;
 				}
@@ -505,7 +520,8 @@ CAP 4720
 				ground_texture.offset.x -= x * .00003;
 
 				var box;
-				for (box of _boxes) {
+				for (var i = _boxes.length - 1; i > 0; i-- ) {
+					box = _boxes[i];
 					box.position.z += gameSpeed;
 					box.__dirtyPosition = true;
 
@@ -521,10 +537,9 @@ CAP 4720
 				}
 				break;
 			case "GAMEOVER":
+				console.log("Game Over");
 				if (music.isEnded() == false)
 				{
-					if (score > highscore)
-						highscore = score;
 					music.stop();
 					explode.play();
 					gameover_noise.play();
@@ -536,6 +551,7 @@ CAP 4720
 				GAMESTATE = "RETRY";
 				break;
 			case "RETRY":
+				console.log("Retry");
 				setRayCaster();
 				var intersects = raycaster.intersectObjects( scene.children );
 				var wasR = retryHover;
@@ -574,14 +590,19 @@ CAP 4720
 					hover.stop();
 				}
 
+				// if (retryHover || quitHover)
+				// 	console.log("hover");
+
 				break;
 			case "RESTARTING":
+				console.log("Restarting");
+				//document.getElementById("debug").innerHTML = "boxes: " + _boxes.length;
 				if (explode.isEnded() == false) {
 					explode.stop();
 				}
 				var obj;
-				for (obj of _boxes)
-				{
+				for (var i = _boxes.length - 1; i >= 0; i-- ) {
+					obj = _boxes[i];
 					obj.position.y = -20;
 					obj.__dirtyPosition = true;
 		      var index = _boxes.indexOf( obj );
@@ -595,7 +616,6 @@ CAP 4720
 				}
 				break;
 		}
-		//document.getElementById("debug").innerHTML = "boxes: " + _boxes.length;
 
 	};
 
@@ -611,7 +631,7 @@ CAP 4720
 		render_stats.update();
 	};
 
-	onMouseMove = function() {
+	onMouseMove = function( event ) {
 		mouseX = event.clientX - windowHalfX;
 		mouseY = event.clientY - windowHalfY;
 
@@ -619,7 +639,7 @@ CAP 4720
 		mouse.y = ( event.clientY / window.innerHeight ) * 2 - 1;
 	};
 
-	onMouseClick = function() {
+	onMouseClick = function( event ) {
 		console.log("click");
 		switch ( GAMESTATE ) {
 			case "MAINMENU":
@@ -651,12 +671,12 @@ CAP 4720
 	};
 
 	loadSounds = function() {
-		explode = new buzz.sound("sounds/explosion.wav");
-		music = new buzz.sound("sounds/Ouroboros.mp3");
-		gameover = new buzz.sound("sounds/gameover.wav");
-		gameover_noise = new buzz.sound("sounds/gameover_noise.wav");
-		select = new buzz.sound("sounds/menuSelect.wav");
-		hover = new buzz.sound("sounds/select.mp3");
+		explode = new buzz.sound("/sounds/explosion.wav");
+		gameover = new buzz.sound("/sounds/gameover.wav");
+		gameover_noise = new buzz.sound("/sounds/gameover_noise.wav");
+		select = new buzz.sound("/sounds/menuSelect.wav");
+		music = new buzz.sound("/sounds/music.wav");
+		hover = new buzz.sound("/sounds/select.wav");
 	};
 
 	window.onload = initScene;
