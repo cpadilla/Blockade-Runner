@@ -28,29 +28,42 @@ CAP 4720
 
 	var initScene, render, _boxes = [], spawnBox, spawnPlayer, loader, Update, time,
 		renderer, render_stats, physics_stats, scene, ground_material, ground, light,
-		camera, onMouseMove, start, loadSounds, createGround, createButton;
+		camera, onMouseMove, onMouseClick, start, loadSounds, createGround, createRetryButtons,
+		retryButton, quitButton, setRayCaster, select, hover, ground_texture,
+		scrollBackground, player_texture, createMenuButtons, playButton, playHover;
 
 	var player, playerSpeed, playerStartZ, GAMESTATE, spawnInterval, mouseX, mouseY,
-	rampTime, gameSpeed;
+	rampTime, gameSpeed, retryHover, quitHover;
 
 	var raycaster = new THREE.Raycaster();
-	var mouse = new THREE.Vector2();
+	var mouse = new THREE.Vector2(), rayMouse = new THREE.Vector2();
 
 	var explode, music, gameover, gameover_noise;
 
 	var windowHalfX = window.innerWidth / 2;
 	var windowHalfY = window.innerHeight / 2;
 
+	var highscore = 0;
+
+	// debug
+	var godMode = 0;
+
 	start = function() {
 		// initialize variables
 		time = 0;
+		document.getElementById("score").innerHTML = "SCORE : " + time;
 		spawnInterval = 1;
 		playerSpeed = .0005;
 		playerStartZ = 25;
 		mouseX = 0;
 		mouseY = 0;
-		rampTime = 700;
+		rampTime = 350;
 		gameSpeed = 1;
+
+		if (player)
+			scene.remove( player );
+
+		spawnPlayer();
 
 		GAMESTATE = "PLAY";
 		music.play();
@@ -69,16 +82,17 @@ CAP 4720
 		render_stats.domElement.style.top = '0px';
 		render_stats.domElement.style.right = '80px';
 		render_stats.domElement.style.zIndex = 100;
-		document.getElementById( 'viewport' ).appendChild( render_stats.domElement );
+		//document.getElementById( 'viewport' ).appendChild( render_stats.domElement );
 
 		physics_stats = new Stats();
 		physics_stats.domElement.style.position = 'absolute';
-		physics_stats.domElement.style.top = '0px';
+		physics_stats.domElement.style.bottom = '0px';
 		physics_stats.domElement.style.right = '0px';
 		physics_stats.domElement.style.zIndex = 100;
 		document.getElementById( 'viewport' ).appendChild( physics_stats.domElement );
 
 		document.addEventListener( 'mousemove', onMouseMove );
+		document.addEventListener( 'mouseup', onMouseClick );
 
 		scene = new Physijs.Scene;
 		scene.setGravity(new THREE.Vector3( 0, -30, 0 ));
@@ -102,8 +116,8 @@ CAP 4720
 		scene.add( camera );
 
 		// Light
-		light = new THREE.DirectionalLight( 0xFFFFFF );
-		light.position.set( 20, 40, -15 );
+		light = new THREE.DirectionalLight( 0xBBBBff );
+		light.position.set( -12, 50, 10 );
 		light.target.position.copy( scene.position );
 		light.castShadow = true;
 		light.shadowCameraLeft = -60;
@@ -125,64 +139,124 @@ CAP 4720
 		// Ground
 		createGround();
 
-		start();
-
-		//spawnBox();
-		spawnPlayer();
+		// start();
+		GAMESTATE = "LOADMENU";
 
 		requestAnimationFrame( render );
 		scene.simulate();
 	};
 
+	scrollBackground = function() {
+		time = 0;
+		document.getElementById("score").innerHTML = "HIGH SCORE : " + highscore;
+		spawnInterval = 1;
+		playerSpeed = .0005;
+		playerStartZ = 25;
+		mouseX = 0;
+		mouseY = 0;
+		rampTime = 350;
+		gameSpeed = 1;
+
+		if (player)
+			scene.remove( player );
+
+		music.play();
+		music.loop = true;
+
+		for (var i = 0; i < 150; i++ ) {
+			spawnBox( ((i % 3) * .1) + 1, true );
+		}
+	};
+
+	createMenuButtons = function() {
+		var button_geometry = new THREE.BoxGeometry( 10, 6, 2 ),
+			createButton = function( y, name ) {
+				var button, material;
+				var texture;
+				if (name == "PLAY") {
+					texture = loader.load( 'images/play.jpg' );
+				}
+				else {
+					texture = loader.load( 'images/quit.jpg' );
+				}
+
+				material = Physijs.createMaterial(
+					new THREE.MeshLambertMaterial({ map: texture }),
+					.6, // medium friction
+					.3 // low restitution
+				);
+				material.map.wrapS = material.map.wrapT = THREE.RepeatWrapping;
+				material.map.repeat.set( 1.0, 1.0 );
+
+				//material = new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( 'images/rocks.jpg' ) });
+
+				button = new Physijs.BoxMesh(
+					button_geometry,
+					material,
+					0
+				);
+				button.collisions = 0;
+				button.name = name;
+
+				button.position.set( 0, y, 20 );
+				button.rotation.set( -0.5, 0, 0 );
+
+				button.castShadow = true;
+				scene.add( button );
+
+				switch ( name )
+				{
+					case "PLAY":
+						playButton = button;
+						break;
+					case "QUIT":
+						quitButton = button;
+						break;
+				}
+			};
+
+			createButton( 15, "PLAY");
+			//createButton( 10, "QUIT");
+	};
+
 	createGround = function() {
+		ground_texture = loader.load( 'images/wood.jpg' );
 		ground_material = Physijs.createMaterial(
-			new THREE.MeshLambertMaterial({ map: loader.load( 'images/rocks.jpg' ) }),
+			new THREE.MeshLambertMaterial({ map: ground_texture }),
 			.9, // high friction
 			.1 // low restitution
 		);
 		ground_material.map.wrapS = ground_material.map.wrapT = THREE.RepeatWrapping;
-		ground_material.map.repeat.set( 3*4, 3 );
+		ground_material.map.repeat.set( 6*4, 6 * 2.5);
 
 		ground = new Physijs.BoxMesh(
-			new THREE.BoxGeometry(400, 1, 100),
+			new THREE.BoxGeometry(400, 1, 100 * 2.5),
 			ground_material,
 			0 // mass
 		);
 		ground.receiveShadow = true;
 		scene.add( ground );
-	}
+	};
 
-	spawnBox = function() {
-		var box_geometry = new THREE.BoxGeometry( 4, 4, 4 ),
+	spawnBox = function( scale, menuBoxes ) {
+		var box_geometry = new THREE.BoxGeometry( 4 * scale, 8 * scale, 4 * scale ),
 			handleCollision = function( collided_with, linearVelocity, angularVelocity ) {
 				switch ( ++this.collisions ) {
 
 					case 1:
-						this.material.color.setHex(0xcc8855);
+						this.material.color.setHex(0x666666);
 						break;
 
 					case 2:
-						this.material.color.setHex(0xcc8855);
+						this.material.color.setHex(0x444444);
 						break;
 
 					case 3:
-						this.material.color.setHex(0x88cc55);
+						this.material.color.setHex(0x333333);
 						break;
 
 					case 4:
-						this.material.color.setHex(0x77dd55);
-						break;
-
-					case 5:
-						this.material.color.setHex(0x99ee55);
-						break;
-
-					case 6:
-						this.material.color.setHex(0x88ff55);
-						break;
-
-					case 7:
-						this.material.color.setHex(0xaaff55);
+						this.material.color.setHex(0x111111);
 						break;
 				}
 			},
@@ -195,7 +269,7 @@ CAP 4720
 					.3 // low restitution
 				);
 				material.map.wrapS = material.map.wrapT = THREE.RepeatWrapping;
-				material.map.repeat.set( .5, .5 );
+				material.map.repeat.set( 1.0, 2.0 );
 
 				//material = new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( 'images/rocks.jpg' ) });
 
@@ -210,37 +284,50 @@ CAP 4720
 				box.setCcdSweptSphereRadius(1);
 
 				var x = Math.random() * 400 - 200;
+				var z;
+				if (menuBoxes) {
+					z = Math.random() * 225 - 112.5;
+				}
+				else {
+					z = -45 * 2.5; // 112.5
+				}
 				box.position.set(
 					x,
 					2.6,
-					-45
+					z
 				);
 
 				box.castShadow = true;
-				box.addEventListener( 'collision', handleCollision );
+				if (!menuBoxes)
+					box.addEventListener( 'collision', handleCollision );
+
 				//box.addEventListener( 'ready', spawnBox );
 				_boxes.push( box );
 				scene.add( box );
 			};
 
-		// return function() {
-		// 	//setTimeout( createBox, 1000 );
 			createBox();
-		// };
 	};
 
-	createButton = function( x, y, z ) {
-		var button_geometry = new THREE.BoxGeometry( 4, 4, 4 ),
-			createButton = function() {
+	createRetryButtons = function() {
+		var button_geometry = new THREE.BoxGeometry( 10, 6, 2 ),
+			createButton = function( x, name ) {
 				var button, material;
+				var texture;
+				if (name == "RETRY") {
+					texture = loader.load( 'images/retry.jpg' );
+				}
+				else {
+					texture = loader.load( 'images/quit.jpg' );
+				}
 
 				material = Physijs.createMaterial(
-					new THREE.MeshLambertMaterial({ map: loader.load( 'images/rocks.jpg' ) }),
+					new THREE.MeshLambertMaterial({ map: texture }),
 					.6, // medium friction
 					.3 // low restitution
 				);
 				material.map.wrapS = material.map.wrapT = THREE.RepeatWrapping;
-				material.map.repeat.set( .5, .5 );
+				material.map.repeat.set( 1.0, 1.0 );
 
 				//material = new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( 'images/rocks.jpg' ) });
 
@@ -250,49 +337,67 @@ CAP 4720
 					0
 				);
 				button.collisions = 0;
-				button.name = "button";
+				button.name = name;
 
-				button.position.set( x, y, z );
+				button.position.set( x, 15, 20 );
+				button.rotation.set( -0.5, 0, 0 );
 
 				button.castShadow = true;
 				scene.add( button );
+
+				switch ( name )
+				{
+					case "RETRY":
+						retryButton = button;
+						break;
+					case "QUIT":
+						quitButton = button;
+						break;
+				}
 			};
 
-			createButton();
+			createButton( -8, "RETRY");
+			createButton( 8, "QUIT");
 	};
 
 	spawnPlayer = (function() {
-		var box_geometry = new THREE.BoxGeometry( 4, 4, 4 ),
+		var lastCollidedWith;
+		var box_geometry = new THREE.BoxGeometry( 3, 3, 3 ),
 			handleCollision = function( collided_with, linearVelocity, angularVelocity ) {
-				console.log("Player Collision!");
-				switch ( ++this.collisions ) {
+				if (lastCollidedWith != collided_with)
+				{
+					lastCollidedWith = collided_with;
+					switch ( this.collisions += ( 1 - godMode ) ) {
 
-					// skip 1 for touching the ground
-					case 2:
-						this.material.color.setHex(0x779900);
-						break;
-					case 3:
-						this.material.color.setHex(0xbb5500);
-						GAMESTATE = "GAMEOVER";
-						break;
+						// skip 1 for touching the ground
+						case 1:
+							this.material.color.setHex(0xffffee);
+							break;
+						case 2:
+							this.material.color.setHex(0x999999);
+							break;
+						case 3:
+							this.material.color.setHex(0xbb0000);
+							GAMESTATE = "GAMEOVER";
+							break;
+					}
 				}
 			},
 			createBox = function() {
 				var box, material;
 
 				material = Physijs.createMaterial(
-					new THREE.MeshLambertMaterial({ map: loader.load( 'images/plywood.jpg' ) }),
+					new THREE.MeshLambertMaterial({ map: loader.load( 'images/grass.png' ) }),
 					.8, // medium friction
 					.1 // low restitution
 				);
 				material.map.wrapS = material.map.wrapT = THREE.RepeatWrapping;
-				material.map.repeat.set( .5, .5 );
-
-				//material = new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( 'images/rocks.jpg' ) });
+				material.map.repeat.set( 1.0, 1.0 );
 
 				box = new Physijs.BoxMesh(
 					box_geometry,
-					material
+					material,
+					1
 				);
 				box.collisions = 0;
 				box.name = "box";
@@ -310,13 +415,6 @@ CAP 4720
 					new THREE.Vector3( 0, 2.5, playerStartZ ),
 					new THREE.Vector3( 0, 1, 0 )
 				);
-				// scene.addConstraint( constraint );
-				// constraint.setLimits(
-				// 	0,
-				// 	Math.pi * 2,
-				// 	1.0,
-				// 	0.0
-				// );
 			};
 
 		return function() {
@@ -326,10 +424,61 @@ CAP 4720
 
 	Update = function() {
 		switch (GAMESTATE) {
+			case "LOADMENU":
+				scrollBackground();
+				createMenuButtons();
+				GAMESTATE = "MAINMENU";
+				break;
+			case "MAINMENU":
+				setRayCaster();
+				var intersects = raycaster.intersectObjects( scene.children );
+				var wasP = playHover;
+				var wasQ = quitHover;
+				playHover = false;
+				quitHover = false;
+				for (var i = 0; i < intersects.length; i++ ){
+					if (intersects[i].object.name == "PLAY") {
+						playHover = true;
+					}
+
+					if (intersects[i].object.name == "QUIT") {
+						quitHover = true;
+					}
+				}
+
+				if (playHover) {
+						playButton.material.color.setHex(0xaaff55);
+						if (!wasP)
+							hover.play();
+				}
+				else {
+						playButton.material.color.setHex(0xaaaaaa);
+				}
+
+				if (!playHover && !quitHover) {
+					hover.stop();
+				}
+
+				spawnBox( (((time % 54) % 3) * .5 + 1) , false );
+
+				ground_texture.offset.y += gameSpeed * .0612;
+				ground_texture.offset.y %= 1;
+
+				var box;
+				for (box of _boxes) {
+					box.position.z += 1;
+					box.__dirtyPosition = true;
+
+					if (box.position.z > playerStartZ + 30) {
+		        var index = _boxes.indexOf( box );
+		        scene.remove( _boxes[index] );
+						_boxes.splice(index, 1);
+					}
+				}
+				break;
 			case "PLAY":
 				time++;
 				document.getElementById("score").innerHTML = "SCORE : " + time;
-				document.getElementById("debug").innerHTML = "X["+player.position.x+"] Y["+player.position.y+"] Z["+player.position.z+"]";
 		    var clampedRotation = Math.max(-100, Math.min(100, mouseX * -0.1));
 
 				player.rotation.set( 0, clampedRotation * 0.01, 0);
@@ -339,48 +488,121 @@ CAP 4720
 				player.__dirtyPosition = true;
 
 				if (time % spawnInterval == 0)
-					spawnBox();
+					// spawnBox( (((time % 54) % 3) * .5 + 1) , false );
+					spawnBox( 1, false );
 
 				//  update spawn interval
 				if (time % rampTime == 0)
 				{
-					gameSpeed += 0.1;
+					gameSpeed += 0.15;
 				}
+
+	      var clampedMovement = Math.max(-100, Math.min(100, mouseX * -0.1));
+	      var x = clampedMovement * 36;
+				//ground_texture.offset.x %= 512;
+				ground_texture.offset.y += gameSpeed * .0612;
+				ground_texture.offset.y %= 1;
+				ground_texture.offset.x -= x * .00003;
 
 				var box;
 				for (box of _boxes) {
 					box.position.z += gameSpeed;
 					box.__dirtyPosition = true;
 
-					if (box.position.z > playerStartZ + 20) {
+					if (box.position.z > playerStartZ + 30) {
 		        var index = _boxes.indexOf( box );
 		        scene.remove( _boxes[index] );
 						_boxes.splice(index, 1);
 					}
 					else {
-			      var clampedMovement = Math.max(-100, Math.min(100, mouseX * -0.1));
-			      var x = clampedMovement * 36;
 			      box.position.x += x * playerSpeed;
 						box.__dirtyPosition = true;
 					}
 				}
 				break;
-
 			case "GAMEOVER":
 				if (music.isEnded() == false)
 				{
+					if (score > highscore)
+						highscore = score;
 					music.stop();
+					explode.play();
 					gameover_noise.play();
 					setTimeout( function(){
 						gameover.play();
 					}, 700 );
 				}
+				createRetryButtons();
 				GAMESTATE = "RETRY";
 				break;
 			case "RETRY":
+				setRayCaster();
+				var intersects = raycaster.intersectObjects( scene.children );
+				var wasR = retryHover;
+				var wasQ = quitHover;
+				retryHover = false;
+				quitHover = false;
+				for (var i = 0; i < intersects.length; i++ ){
+					if (intersects[i].object.name == "RETRY") {
+						retryHover = true;
+					}
+
+					if (intersects[i].object.name == "QUIT") {
+						quitHover = true;
+					}
+				}
+
+				if (retryHover) {
+						retryButton.material.color.setHex(0xaaff55);
+						if (!wasR)
+							hover.play();
+				}
+				else {
+						retryButton.material.color.setHex(0xaaaaaa);
+				}
+
+				if (quitHover) {
+						quitButton.material.color.setHex(0xaaff55);
+						if (!wasQ)
+							hover.play();
+				}
+				else {
+						quitButton.material.color.setHex(0xaaaaaa);
+				}
+
+				if (!retryHover && !quitHover) {
+					hover.stop();
+				}
+
+				break;
+			case "RESTARTING":
+				if (explode.isEnded() == false) {
+					explode.stop();
+				}
+				var obj;
+				for (obj of _boxes)
+				{
+					obj.position.y = -20;
+					obj.__dirtyPosition = true;
+		      var index = _boxes.indexOf( obj );
+		      scene.remove( _boxes[index] );
+					_boxes.splice(index, 1);
+				}
+
+				if (_boxes.length == 0)
+				{
+					start();
+				}
 				break;
 		}
+		//document.getElementById("debug").innerHTML = "boxes: " + _boxes.length;
 
+	};
+
+	setRayCaster = function() {
+		rayMouse.x = mouse.x;
+		rayMouse.y = mouse.y + 0.282; // for css objects
+		raycaster.setFromCamera( rayMouse, camera );
 	};
 
 	render = function() {
@@ -393,16 +615,48 @@ CAP 4720
 		mouseX = event.clientX - windowHalfX;
 		mouseY = event.clientY - windowHalfY;
 
-    //var clampedRotation = Math.max(-100, Math.min(100, mouseX * -0.1));
+		mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+		mouse.y = ( event.clientY / window.innerHeight ) * 2 - 1;
+	};
 
-		//player.rotation.set( 0, clampedRotation * 0.01, 0);
-	}
+	onMouseClick = function() {
+		console.log("click");
+		switch ( GAMESTATE ) {
+			case "MAINMENU":
+				if (playHover)
+				{
+					select.play();
+					scene.remove( playButton );
+					//scene.remove( quitButton );
+					GAMESTATE = "RESTARTING";
+				}
+				break;
+			case "RETRY":
+				if (retryHover)
+				{
+					select.play();
+					scene.remove( retryButton );
+					scene.remove( quitButton );
+					GAMESTATE = "RESTARTING";
+				}
+				if (quitHover)
+				{
+					select.play();
+					scene.remove( retryButton );
+					scene.remove( quitButton );
+					GAMESTATE = "LOADMENU";
+				}
+				break;
+		}
+	};
 
 	loadSounds = function() {
-		explode = new buzz.sound("sounds/Explosion.mp3");
+		explode = new buzz.sound("sounds/explosion.wav");
 		music = new buzz.sound("sounds/Ouroboros.mp3");
 		gameover = new buzz.sound("sounds/gameover.wav");
 		gameover_noise = new buzz.sound("sounds/gameover_noise.wav");
+		select = new buzz.sound("sounds/menuSelect.wav");
+		hover = new buzz.sound("sounds/select.mp3");
 	};
 
 	window.onload = initScene;
@@ -412,7 +666,7 @@ CAP 4720
 
 <body>
 	<div id="heading">
-		<h1>[+]   B L O C A D E   |   R U N N E R   [+]</h1>
+		<h1>___[ ]___B L O C A D E__[ ]__R U N N E R___[ ]___</h1>
 		<p id="score"></p>
 		<p id="debug"></p>
 	</div>
