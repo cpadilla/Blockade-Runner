@@ -28,9 +28,13 @@ CAP 4720
 
 	var initScene, render, _boxes = [], spawnBox, spawnPlayer, loader, Update, time,
 		renderer, render_stats, physics_stats, scene, ground_material, ground, light,
-		camera, onMouseMove, start, loadSounds;
+		camera, onMouseMove, start, loadSounds, createGround, createButton;
 
-	var player, playerSpeed, playerStartZ, GAMESTATE, spawnInterval, mouseX, mouseY;
+	var player, playerSpeed, playerStartZ, GAMESTATE, spawnInterval, mouseX, mouseY,
+	rampTime, gameSpeed;
+
+	var raycaster = new THREE.Raycaster();
+	var mouse = new THREE.Vector2();
 
 	var explode, music, gameover, gameover_noise;
 
@@ -45,6 +49,8 @@ CAP 4720
 		playerStartZ = 25;
 		mouseX = 0;
 		mouseY = 0;
+		rampTime = 700;
+		gameSpeed = 1;
 
 		GAMESTATE = "PLAY";
 		music.play();
@@ -117,6 +123,18 @@ CAP 4720
 		loadSounds();
 
 		// Ground
+		createGround();
+
+		start();
+
+		//spawnBox();
+		spawnPlayer();
+
+		requestAnimationFrame( render );
+		scene.simulate();
+	};
+
+	createGround = function() {
 		ground_material = Physijs.createMaterial(
 			new THREE.MeshLambertMaterial({ map: loader.load( 'images/rocks.jpg' ) }),
 			.9, // high friction
@@ -132,15 +150,7 @@ CAP 4720
 		);
 		ground.receiveShadow = true;
 		scene.add( ground );
-
-		start();
-
-		//spawnBox();
-		spawnPlayer();
-
-		requestAnimationFrame( render );
-		scene.simulate();
-	};
+	}
 
 	spawnBox = function() {
 		var box_geometry = new THREE.BoxGeometry( 4, 4, 4 ),
@@ -192,13 +202,16 @@ CAP 4720
 				box = new Physijs.BoxMesh(
 					box_geometry,
 					material,
-					100
+					0
 				);
 				box.collisions = 0;
 				box.name = "box";
+				box.setCcdMotionThreshold(1);
+				box.setCcdSweptSphereRadius(1);
 
+				var x = Math.random() * 400 - 200;
 				box.position.set(
-					Math.random() * 400 - 200,
+					x,
 					2.6,
 					-45
 				);
@@ -216,34 +229,50 @@ CAP 4720
 		// };
 	};
 
+	createButton = function( x, y, z ) {
+		var button_geometry = new THREE.BoxGeometry( 4, 4, 4 ),
+			createButton = function() {
+				var button, material;
+
+				material = Physijs.createMaterial(
+					new THREE.MeshLambertMaterial({ map: loader.load( 'images/rocks.jpg' ) }),
+					.6, // medium friction
+					.3 // low restitution
+				);
+				material.map.wrapS = material.map.wrapT = THREE.RepeatWrapping;
+				material.map.repeat.set( .5, .5 );
+
+				//material = new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( 'images/rocks.jpg' ) });
+
+				button = new Physijs.BoxMesh(
+					button_geometry,
+					material,
+					0
+				);
+				button.collisions = 0;
+				button.name = "button";
+
+				button.position.set( x, y, z );
+
+				button.castShadow = true;
+				scene.add( button );
+			};
+
+			createButton();
+	};
+
 	spawnPlayer = (function() {
 		var box_geometry = new THREE.BoxGeometry( 4, 4, 4 ),
 			handleCollision = function( collided_with, linearVelocity, angularVelocity ) {
 				console.log("Player Collision!");
 				switch ( ++this.collisions ) {
 
-					case 1:
-						this.material.color.setHex(0xcc4400);
-						break;
-
+					// skip 1 for touching the ground
 					case 2:
-						this.material.color.setHex(0xbb5500);
-						break;
-
-					case 3:
-						this.material.color.setHex(0xaa6600);
-						break;
-
-					case 4:
-						this.material.color.setHex(0x997700);
-						break;
-
-					case 5:
-						this.material.color.setHex(0x888800);
-						break;
-
-					case 6:
 						this.material.color.setHex(0x779900);
+						break;
+					case 3:
+						this.material.color.setHex(0xbb5500);
 						GAMESTATE = "GAMEOVER";
 						break;
 				}
@@ -263,8 +292,7 @@ CAP 4720
 
 				box = new Physijs.BoxMesh(
 					box_geometry,
-					material,
-					0
+					material
 				);
 				box.collisions = 0;
 				box.name = "box";
@@ -275,6 +303,20 @@ CAP 4720
 				box.addEventListener( 'collision', handleCollision );
 				player = box;
 				scene.add( box );
+
+				var constraint = new Physijs.HingeConstraint(
+					box,
+					null,
+					new THREE.Vector3( 0, 2.5, playerStartZ ),
+					new THREE.Vector3( 0, 1, 0 )
+				);
+				// scene.addConstraint( constraint );
+				// constraint.setLimits(
+				// 	0,
+				// 	Math.pi * 2,
+				// 	1.0,
+				// 	0.0
+				// );
 			};
 
 		return function() {
@@ -287,18 +329,27 @@ CAP 4720
 			case "PLAY":
 				time++;
 				document.getElementById("score").innerHTML = "SCORE : " + time;
+				document.getElementById("debug").innerHTML = "X["+player.position.x+"] Y["+player.position.y+"] Z["+player.position.z+"]";
 		    var clampedRotation = Math.max(-100, Math.min(100, mouseX * -0.1));
 
 				player.rotation.set( 0, clampedRotation * 0.01, 0);
+				player.position.x = 0;
+				player.position.y = 2.5;
+				player.position.z = 25;
+				player.__dirtyPosition = true;
 
 				if (time % spawnInterval == 0)
 					spawnBox();
 
 				//  update spawn interval
+				if (time % rampTime == 0)
+				{
+					gameSpeed += 0.1;
+				}
 
 				var box;
 				for (box of _boxes) {
-					box.position.z += 1;
+					box.position.z += gameSpeed;
 					box.__dirtyPosition = true;
 
 					if (box.position.z > playerStartZ + 20) {
@@ -363,6 +414,7 @@ CAP 4720
 	<div id="heading">
 		<h1>[+]   B L O C A D E   |   R U N N E R   [+]</h1>
 		<p id="score"></p>
+		<p id="debug"></p>
 	</div>
 	<div id="viewport"></div>
 </body>
